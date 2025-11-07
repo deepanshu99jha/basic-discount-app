@@ -36,9 +36,7 @@ const ShopSchema = new Schema(
       defaultWidgetEnabled: { type: Boolean, default: true },
     },
 
-    extension: {
-      activated: { type: Boolean, default: false },
-    },
+    extension_activated: { type: Boolean, default: false },
 
     offers: [{ type: String }], // list of offer IDs like "off_abc123"
 
@@ -48,10 +46,10 @@ const ShopSchema = new Schema(
     },
 
     // Extra info you asked for
-    shopUserName: { type: String },      // e.g. “John Doe”
-    supportEmail: { type: String },   // support/primary email
+    shopUserName: { type: String }, // e.g. “John Doe”
+    supportEmail: { type: String }, // support/primary email
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 let ShopModel;
@@ -61,12 +59,11 @@ try {
   ShopModel = mongoose.model("Shop", ShopSchema);
 }
 
-export async function upsertShopFromSessionAndInfo({
+export async function upsertShopFromOAuth({
   shop,
   accessToken,
   scopes,
-  shopUserName,
-  supportEmail,
+  shopInfo,
 }) {
   await connectMongo();
 
@@ -77,14 +74,28 @@ export async function upsertShopFromSessionAndInfo({
     status: "active",
   };
 
-  if (shopUserName !== undefined) update.shopUserName = shopUserName;
-  if (supportEmail !== undefined) update.supportEmail = supportEmail;
+  // Extract data from shopInfo if provided
+  if (shopInfo) {
+    if (shopInfo.name) update.shopUserName = shopInfo.name;
+    if (shopInfo.email || shopInfo.supportEmail || shopInfo.contactEmail) {
+      update.supportEmail =
+        shopInfo.supportEmail || shopInfo.contactEmail || shopInfo.email;
+    }
+  }
 
-  return ShopModel.findOneAndUpdate(
+  const result = await ShopModel.findOneAndUpdate(
     { shop },
-    { $set: update, $setOnInsert: { offers: [], offerStats: { totalOffers: 0, activeOffers: 0 } } },
-    { upsert: true, new: true }
+    {
+      $set: update,
+      $setOnInsert: {
+        offers: [],
+        offerStats: { totalOffers: 0, activeOffers: 0 },
+      },
+    },
+    { upsert: true, new: true },
   );
+
+  return result;
 }
 
 export async function getShopByDomain(shop) {

@@ -2,12 +2,11 @@
 
 client_id = "dfe374e087c7d3466445b9be1b4ca45a"
 name = "basic-discount-app"
-application_url = "https://example.com"
+application_url = "https://compression-washing-folks-carl.trycloudflare.com"
 embedded = true
 
 [build]
 automatically_update_urls_on_dev = true
-include_config_on_deploy = true
 
 [webhooks]
 api_version = "2026-01"
@@ -25,4 +24,8 @@ api_version = "2026-01"
 scopes = "write_products"
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ 
+  "https://compression-washing-folks-carl.trycloudflare.com/auth/callback",
+  "https://compression-washing-folks-carl.trycloudflare.com/auth/shopify/callback",
+  "https://compression-washing-folks-carl.trycloudflare.com/api/auth/callback"
+  ]
