@@ -102,3 +102,14 @@ export async function getShopByDomain(shop) {
   await connectMongo();
   return ShopModel.findOne({ shop }).lean();
 }
+
+/**
+ * Get shop owner name for greeting
+ * @param {string} shop - Shop domain (e.g., "store.myshopify.com")
+ * @returns {Promise<string>} Shop owner name or default
+ */
+export async function getShopOwnerName(shop) {
+  await connectMongo();
+  const shopData = await ShopModel.findOne({ shop }, "shopUserName").lean();
+  return shopData?.shopUserName || "Store Owner";
+}
