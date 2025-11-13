@@ -85,3 +85,4 @@ export const authenticate = shopify.authenticate;
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
 export const unauthenticated = shopify.unauthenticated;
 export const registerWebhooks = shopify.registerWebhooks;
+export const login = shopify.login;

@@ -1,50 +1,40 @@
-// app/components/Dashboard/EmptyState.jsx
-import { useNavigate } from "react-router";
-
-/**
- * Empty State Component
- * Shown when merchant has no offers yet
- * Follows Shopify BFS guidelines for empty states
- */
 export default function EmptyState() {
-  const navigate = useNavigate();
-
-  const handleCreateOffer = () => {
-    navigate("/app/offers/new");
-  };
-
   return (
-    <s-card>
-      <s-box padding="large">
-        <s-block-stack gap="400" inlineAlign="center">
-          <s-box
-            padding="400"
-            background="surface-secondary"
-            borderRadius="full"
-          >
-            <s-icon source="discount" size="large" tone="base" />
+    <>
+      <s-section accessibilityLabel="Empty state section">
+        <s-grid gap="base" justifyItems="center" paddingBlock="large-400">
+          <s-box maxInlineSize="200px" maxBlockSize="200px">
+            {/* aspectRatio should match the actual image dimensions (width/height) */}
+            <s-image
+              aspectRatio="1/0.5"
+              src="https://cdn.shopify.com/static/images/polaris/patterns/callout.png"
+              alt="A stylized graphic of four characters, each holding a puzzle piece"
+            />
           </s-box>
 
-          {/* Heading */}
-          <s-text variant="headingLg" as="h1" type="strong">
-            Create your first discount offer
-          </s-text>
-
-          {/* Description */}
-          <s-box maxInlineSize="480px" padding="large">
-            <s-text variant="bodyMd" as="p" alignment="center" tone="subdued">
-              Start by creating a discount offer for your products, collections,
-              or all products. You can customize the discount type, value, and
-              display settings to engage your customers.
-            </s-text>
-          </s-box>
-          <s-button onClick={handleCreateOffer} variant="primary">
-            Create Offer
-          </s-button>
-
-          {/* Action button with icon */}
-        </s-block-stack>
-      </s-box>
-    </s-card>
+          <s-grid justifyItems="center" maxInlineSize="450px" gap="base">
+            <s-stack alignItems="center" gap="base">
+              <s-heading>Create your first discount offer</s-heading>
+              <div style={{ textAlign: "center" }}>
+                Start by creating a discount offer for your products,
+                collections, or all products. You can customize the discount
+                type, value, and display settings to engage your customers.
+              </div>
+            </s-stack>
+            <s-stack
+              gap="small-200"
+              justifyContent="center"
+              padding="base"
+              paddingBlockEnd="none"
+              direction="inline"
+            >
+              <s-button href="/app/offers/new" variant="primary">
+                Create Offer
+              </s-button>
+            </s-stack>
+          </s-grid>
+        </s-grid>
+      </s-section>
+    </>
   );
 }

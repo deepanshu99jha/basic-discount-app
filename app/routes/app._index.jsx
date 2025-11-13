@@ -1,28 +1,25 @@
 // app/routes/app._index.jsx
-import { useLoaderData, useNavigate } from "react-router";
+import { useLoaderData, useNavigate, useMatches } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
-import { getShopOwnerName } from "../models/shop.server";
 import { getOffersByShop, updateOffer } from "../models/offer.server";
+import { getShopDataFromParent } from "../utils/shopData";
 import EmptyState from "../components/Dashboard/EmptyState";
 import OffersTable from "../components/Dashboard/OffersTable";
 
 /**
  * LOADER - Runs on SERVER before page loads
- * Fetches shop owner name and all offers from MongoDB
+ * Authentication already done in parent layout (app.jsx)
+ * Only fetches offers - shop data comes from parent
  */
 export const loader = async ({ request }) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
-  // Fetch data in parallel for better performance
-  const [shopOwnerName, offers] = await Promise.all([
-    getShopOwnerName(shop),
-    getOffersByShop(shop),
-  ]);
+  // Only fetch offers - shop name already in parent loader
+  const offers = await getOffersByShop(shop);
 
   return Response.json({
-    shopOwnerName,
     offers: offers || [],
   });
 };
@@ -56,8 +53,12 @@ export const action = async ({ request }) => {
  * Shows personalized greeting and either empty state or offers table
  */
 export default function Dashboard() {
-  const { shopOwnerName, offers } = useLoaderData();
+  const { offers } = useLoaderData();
   const navigate = useNavigate();
+
+  // Get shop data from parent route (app.jsx loader) - no redundant DB calls!
+  const matches = useMatches();
+  const { shopUserName } = getShopDataFromParent(matches);
 
   // Show offers exist (for easier logic)
   const hasOffers = offers.length > 0;
@@ -68,7 +69,7 @@ export default function Dashboard() {
 
   return (
     <s-page>
-      <s-heading>{`Hi, ${shopOwnerName} 👋 Welcome to Discount App 🎉!`}</s-heading>
+      <h1>{`Welcome ${shopUserName} 🎉!`}</h1>
       {/* Show "Create Offer" button in header ONLY when offers exist */}
       {hasOffers && (
         <s-button

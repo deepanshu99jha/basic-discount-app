@@ -2,64 +2,73 @@
 import mongoose, { Schema } from "mongoose";
 import { connectMongo } from "../db/mongo.server";
 
+/**
+ * Generates a unique offer ID with timestamp and random string
+ * Format: off_1734567890123_a8f3kl
+ * @returns {string} Unique offer ID
+ */
+export function generateOfferId() {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  return `off_${timestamp}_${random}`;
+}
+
 const OfferSchema = new Schema(
   {
-    _id: { type: String, required: true }, // "off_abc123"
+    _id: { type: String, required: true }, // "off_1234567890"
     shop: { type: String, required: true, index: true },
-
     title: { type: String, required: true },
-
     status: {
       type: String,
-      enum: ["active", "paused", "expired"],
+      enum: ["active", "paused"],
       default: "active",
       index: true,
     },
 
+    // === TARGET (What products/collections get the discount) ===
     target: {
       targetType: {
         type: String,
-        enum: ["product", "collection", "all"],
+        enum: ["all", "product", "collection"],
         required: true,
       },
-      productIds: [{ type: String }],
-      collectionIds: [{ type: String }],
-      appliesToAllProducts: { type: Boolean, default: false },
+
+      // FOR SPECIFIC PRODUCTS - Array of product objects with full details
+      products: [
+        {
+          productId: { type: String }, // "gid://shopify/Product/123"
+          title: { type: String }, // "Cool T-Shirt"
+          handle: { type: String }, // "cool-t-shirt"
+          image: { type: String }, // "https://cdn.shopify.com/..."
+          variantId: { type: String }, // "gid://shopify/ProductVariant/456"
+        },
+      ],
+
+      // FOR COLLECTIONS (future use)
+      collections: [
+        {
+          collectionId: { type: String }, // "gid://shopify/Collection/789"
+          title: { type: String }, // "Summer Collection"
+          handle: { type: String }, // "summer-collection"
+        },
+      ],
     },
 
+    // === DISCOUNT ===
     discount: {
-      discountType: {
+      type: {
         type: String,
         enum: ["percentage", "fixed"],
-        default: "percentage",
+        required: true,
       },
-      value: { type: Number, required: true },
-      currency: { type: String }, // needed if fixed
+      value: { type: Number, required: true, min: 0 },
     },
 
+    // === SHOPIFY INTEGRATION (for metafields) ===
     shopify: {
-      discountId: { type: String },
       metafieldNamespace: { type: String, default: "discount_app" },
       metafieldKey: { type: String, default: "offer" },
-    },
-
-    widget: {
-      showOnProductPage: { type: Boolean, default: true },
-      position: { type: String, default: "above_add_to_cart" },
-      customText: { type: String },
-    },
-
-    schedule: {
-      hasSchedule: { type: Boolean, default: false },
-      startsAt: { type: Date },
-      endsAt: { type: Date },
-    },
-
-    analytics: {
-      views: { type: Number, default: 0 },
-      clicks: { type: Number, default: 0 },
-      conversions: { type: Number, default: 0 },
-      revenue: { type: Number, default: 0 },
+      metafieldsApplied: { type: Boolean, default: false },
     },
   },
   { timestamps: true }
