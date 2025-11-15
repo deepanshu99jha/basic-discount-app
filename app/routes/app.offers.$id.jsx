@@ -153,11 +153,13 @@ export default function DiscountForm() {
   const { id } = useParams();
 
   const offer = useLoaderData();
+  const actionData = useActionData();
   const [initialFormState, setInitialFormState] = useState(offer);
   const [formState, setFormState] = useState(offer);
+  const [previousFormState, setPreviousFormState] = useState(null);
   const [validationErrors, setValidationErrors] = useState({});
   const [hasValidationErrors, setHasValidationErrors] = useState(false);
-  const errors = useActionData()?.errors || {};
+  const errors = actionData?.errors || {};
   const isSaving = useNavigation().state === "submitting";
   const isDirty =
     JSON.stringify(formState) !== JSON.stringify(initialFormState);
@@ -250,6 +252,13 @@ export default function DiscountForm() {
     setValidationErrors({});
     setHasValidationErrors(false);
 
+    // Save current state for potential rollback on error
+    setPreviousFormState(initialFormState);
+
+    // Optimistically update the initial state to remove dirty flag
+    // This gives instant visual feedback that the save is in progress
+    setInitialFormState(formState);
+
     // Submit entire formState
     submit(formState, { method: "post" });
   }
@@ -284,6 +293,54 @@ export default function DiscountForm() {
     setFormState(offer);
   }, [id, offer]);
 
+  // Handle success/error feedback after action completes
+  useEffect(() => {
+    if (actionData?.success) {
+      // Show success toast for updates
+      window.shopify.toast.show("Offer saved", { duration: 3000 });
+      // Clear the rollback state
+      setPreviousFormState(null);
+    } else if (actionData?.success === false) {
+      // Show error toast
+      window.shopify.toast.show("Failed to save offer. Please try again.", {
+        duration: 5000,
+        isError: true,
+      });
+
+      // Rollback optimistic update on error
+      if (previousFormState) {
+        setInitialFormState(previousFormState);
+        setPreviousFormState(null);
+        // Show save bar again since changes weren't saved
+        window.shopify.saveBar.show("discount-form");
+      }
+    }
+  }, [actionData, previousFormState]);
+
+  // Show success toast when new offer is created (after redirect)
+  useEffect(() => {
+    // Check if this is a newly created offer (URL changed from /new to /:id)
+    if (id !== "new" && !initialFormState._id && offer._id) {
+      window.shopify.toast.show("Offer created", { duration: 3000 });
+    }
+  }, [id, offer._id, initialFormState._id]);
+
+  // Prevent navigation when there are unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = ""; // Chrome requires returnValue to be set
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [isDirty]);
+
   return (
     <>
       <form
@@ -303,7 +360,11 @@ export default function DiscountForm() {
             Dashboard
           </s-link>
           {initialFormState._id && (
-            <s-button slot="secondary-actions" onClick={handleDelete}>
+            <s-button
+              slot="secondary-actions"
+              onClick={handleDelete}
+              disabled={isSaving}
+            >
               Delete
             </s-button>
           )}
@@ -316,6 +377,7 @@ export default function DiscountForm() {
                 name="title"
                 placeholder="Name your deal"
                 value={formState.title}
+                disabled={isSaving}
                 onInput={(e) =>
                   setFormState({ ...formState, title: e.target.value })
                 }
@@ -325,6 +387,7 @@ export default function DiscountForm() {
                   name="Apply offer on"
                   label="Apply offer on"
                   value={formState.targetType}
+                  disabled={isSaving}
                   onChange={(e) =>
                     setFormState({
                       ...formState,
@@ -413,6 +476,7 @@ export default function DiscountForm() {
                         <s-button
                           onClick={selectProduct}
                           accessibilityLabel="Change the product"
+                          disabled={isSaving}
                         >
                           Change
                         </s-button>
@@ -422,6 +486,7 @@ export default function DiscountForm() {
                     <s-button
                       onClick={selectProduct}
                       accessibilityLabel="Select the product"
+                      disabled={isSaving}
                     >
                       Select product
                     </s-button>
@@ -435,6 +500,7 @@ export default function DiscountForm() {
                   name="discountType"
                   label="Select discount type"
                   value={formState.discountType}
+                  disabled={isSaving}
                   onChange={(e) =>
                     setFormState({ ...formState, discountType: e.target.value })
                   }
@@ -477,6 +543,7 @@ export default function DiscountForm() {
                   }
                   error={validationErrors.discountValue}
                   value={formState.discountValue}
+                  disabled={isSaving}
                   onInput={(e) => {
                     const newValue = e.target.value;
                     setFormState({
@@ -484,43 +551,59 @@ export default function DiscountForm() {
                       discountValue: newValue,
                     });
 
-                    // Real-time validation for percentage
-                    if (
-                      formState.discountType === "percentage" &&
-                      parseFloat(newValue) > 100
-                    ) {
-                      setValidationErrors({
-                        ...validationErrors,
-                        discountValue: "Percentage cannot exceed 100%",
-                      });
-                    } else if (parseFloat(newValue) <= 0 && newValue !== "") {
-                      setValidationErrors({
-                        ...validationErrors,
-                        discountValue: "Please enter a valid discount value",
-                      });
-                    } else if (parseFloat(/^\d+(\.\d+)?$/.test(newValue))) {
-                      setValidationErrors({
-                        ...validationErrors,
-                        discountValue: "Please enter a valid discount value",
-                      });
-                    } else {
-                      // Clear error if valid
+                    // Skip validation if empty (user is still typing)
+                    if (newValue === "") {
                       // eslint-disable-next-line no-unused-vars
                       const { discountValue, ...otherErrors } =
                         validationErrors;
                       setValidationErrors(otherErrors);
+                      return;
                     }
 
-                    // Real-time validation for specific discount
-                    // if (
-                    //   formState.discountType === "specific discount" &&
-                    //   parseFloat(newValue) > formState.productPrice
-                    // ) {
-                    //   setValidationErrors({
-                    //     ...validationErrors,
-                    //     discountValue: `Specific discount cannot exceed product price (${formState.productPrice})`,
-                    //   });
-                    // }
+                    // Check if input contains non-numeric characters (except decimal point)
+                    const hasLetters = /[a-zA-Z]/.test(newValue);
+                    const isValidNumber = /^\d+(\.\d*)?$/.test(newValue);
+
+                    if (hasLetters) {
+                      setValidationErrors({
+                        ...validationErrors,
+                        discountValue: "Please enter numbers only",
+                      });
+                      return;
+                    }
+
+                    if (!isValidNumber) {
+                      setValidationErrors({
+                        ...validationErrors,
+                        discountValue: "Please enter a valid number",
+                      });
+                      return;
+                    }
+
+                    // Validate based on discount type
+                    const numValue = parseFloat(newValue);
+
+                    if (numValue <= 0) {
+                      setValidationErrors({
+                        ...validationErrors,
+                        discountValue: "Value must be greater than 0",
+                      });
+                      return;
+                    }
+
+                    // Percentage-specific validation
+                    if (formState.discountType === "percentage" && numValue > 100) {
+                      setValidationErrors({
+                        ...validationErrors,
+                        discountValue: "Percentage cannot exceed 100%",
+                      });
+                      return;
+                    }
+
+                    // Clear error if all validations pass
+                    // eslint-disable-next-line no-unused-vars
+                    const { discountValue, ...otherErrors } = validationErrors;
+                    setValidationErrors(otherErrors);
                   }}
                 ></s-text-field>
               </s-grid>

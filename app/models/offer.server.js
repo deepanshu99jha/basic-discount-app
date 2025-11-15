@@ -107,5 +107,5 @@ export async function updateOffer(shop, id, data) {
 
 export async function deleteOffer(shop, id) {
   await connectMongo();
-  return OfferModel.deleteOne({ shop, _id: id });
+  return OfferModel.findOneAndDelete({ shop, _id: id });
 }

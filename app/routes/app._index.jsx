@@ -2,10 +2,15 @@
 import { useLoaderData, useNavigate, useMatches } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
-import { getOffersByShop, updateOffer } from "../models/offer.server";
+import {
+  getOffersByShop,
+  updateOffer,
+  deleteOffer,
+} from "../models/offer.server";
 import { getShopDataFromParent } from "../utils/shopData";
 import EmptyState from "../components/Dashboard/EmptyState";
 import OffersTable from "../components/Dashboard/OffersTable";
+import Analytics from "../components/Dashboard/Analytics";
 
 /**
  * LOADER - Runs on SERVER before page loads
@@ -40,9 +45,50 @@ export const action = async ({ request }) => {
     const offerId = formData.get("offerId");
     const newStatus = formData.get("status");
 
-    await updateOffer(shop, offerId, { status: newStatus });
+    // Update the offer in the database
+    const updatedOffer = await updateOffer(shop, offerId, {
+      status: newStatus,
+    });
 
-    return Response.json({ success: true });
+    // Return the updated offer so useFetcher can access it
+    return Response.json({
+      success: true,
+      offer: updatedOffer,
+    });
+  }
+  // Handle delete action of Offer from the table
+  if (action === "deleteOffer") {
+    try {
+      const offerId = formData.get("offerId");
+      // Validate we have an offer ID
+      if (!offerId) {
+        return Response.json(
+          { success: false, error: "Offer ID is required" },
+          { status: 400 },
+        );
+      }
+      // Delete the offer from database
+      const deletedOffer = await deleteOffer(shop, offerId);
+
+      // Check if deletion was successful
+      if (!deletedOffer) {
+        return Response.json(
+          { success: false, error: "Offer not found" },
+          { status: 404 },
+        );
+      }
+      // Return success response
+      return Response.json({
+        success: true,
+        message: "Deal deleted successfully",
+      });
+    } catch (error) {
+      console.error("Error deleting offer:", error);
+      return Response.json(
+        { success: false, error: error.message },
+        { status: 500 },
+      );
+    }
   }
 
   return Response.json({ success: false }, { status: 400 });
@@ -68,8 +114,7 @@ export default function Dashboard() {
   };
 
   return (
-    <s-page>
-      <h1>{`Welcome ${shopUserName} 🎉!`}</h1>
+    <s-page gap="base">
       {/* Show "Create Offer" button in header ONLY when offers exist */}
       {hasOffers && (
         <s-button
@@ -80,7 +125,8 @@ export default function Dashboard() {
           Create Offer
         </s-button>
       )}
-
+      <h1>{`Welcome ${shopUserName} 🎉!`}</h1>
+      <Analytics />
       {/* Conditional rendering: Empty state OR Offers table */}
       {hasOffers ? <OffersTable offers={offers} /> : <EmptyState />}
     </s-page>

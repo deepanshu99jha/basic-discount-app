@@ -1,0 +1,26 @@
+s-table-row:hover {
+  cursor: pointer;
+  background-color: gray;
+}
+s-table-row s-table-cell:hover {
+  cursor: pointer;
+  background-color: gray;
+}
+
+.actions-column {
+  display: flex;
+  flex-direction: row;
+  align-items: center; /* vertical center */
+} 
+
+.fade-out-row {
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: opacity 200ms ease-out, transform 200ms ease-out;
+}
+
+.fade-out-row {
+  opacity: 0.3;
+  transform: translateX(-4px);
+  transition: opacity 200ms ease-out, transform 200ms ease-out;
+}
